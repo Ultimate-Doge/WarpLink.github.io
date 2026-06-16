@@ -1,48 +1,46 @@
 (function(Scratch) {
     'use strict';
 
-    class WarpLinkSafeEditor {
+    class WarpLinkStableBridge {
         constructor() {
-            this.incomingCodeData = "No shared code yet.";
+            this.vm = Scratch.vm;
+            this.isHandlingEvent = false;
+            this.setupHooks();
         }
 
-        getInfo() {
-            return {
-                id: 'warplinksafe',
-                name: 'WarpLink Safe Editor',
-                blocks: [
-                    {
-                        opcode: 'shareScriptText',
-                        blockType: Scratch.BlockType.COMMAND,
-                        text: 'Share script layout [TEXT]',
-                        arguments: {
-                            TEXT: { type: Scratch.ArgumentType.STRING, defaultValue: "move 10 steps" }
-                        }
-                    },
-                    {
-                        opcode: 'getSharedScriptText',
-                        blockType: Scratch.BlockType.REPORTER,
-                        text: 'Friend\'s shared layout'
+        getInfo() { return { id: 'warplinkbridge', name: 'WarpLink Safe Bridge', blocks: [] }; }
+
+        setupHooks() {
+            if (!this.vm) return;
+
+            // Catch individual block updates safely and forward out to Tampermonkey
+            this.vm.runtime.on('QUERY_COMPILE', (e) => {
+                if (this.isHandlingEvent) return;
+                window.postMessage({ type: 'TW_EDITOR_LOCAL_ACTION', event: e }, '*');
+            });
+
+            // Catch incoming actions captured by Tampermonkey from your friend
+            window.addEventListener('message', (event) => {
+                if (event.data && event.data.type === 'TW_EDITOR_REMOTE_ACTION') {
+                    this.applyEvent(event.data.event);
+                }
+            });
+        }
+
+        applyEvent(eventData) {
+            this.isHandlingEvent = true;
+            try {
+                const workspace = this.vm.runtime.getEditingTarget()?.blocks;
+                if (workspace && eventData && eventData.element === 'block') {
+                    if (workspace.getBlock(eventData.blockId)) {
+                        workspace.moveBlock(eventData.blockId, eventData.newX, eventData.newY);
                     }
-                ]
-            };
-        }
-
-        // Updates the native TurboWarp cloud network safely inside the sandbox
-        shareScriptText(args) {
-            if (typeof Scratch !== 'undefined' && Scratch.vmData) {
-                Scratch.vmData.setCloudVariable('☁ shared_editor_stream', args.TEXT);
-            }
-        }
-
-        // Reads incoming workspace variables without touching hidden system directories
-        getSharedScriptText() {
-            if (typeof Scratch !== 'undefined' && Scratch.vmData) {
-                return Scratch.vmData.getCloudVariable('☁ shared_editor_stream') || "No shared code yet.";
-            }
-            return this.incomingCodeData;
+                    this.vm.emitWorkspaceUpdate();
+                }
+            } catch (err) {}
+            this.isHandlingEvent = false;
         }
     }
 
-    Scratch.extensions.register(new WarpLinkSafeEditor());
+    Scratch.extensions.register(new WarpLinkStableBridge());
 })(Scratch);
