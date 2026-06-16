@@ -1,49 +1,48 @@
 (function(Scratch) {
     'use strict';
 
-    class TurboWarpLiveSandboxed {
-        constructor() {}
+    class WarpLinkSafeEditor {
+        constructor() {
+            this.incomingCodeData = "No shared code yet.";
+        }
 
         getInfo() {
             return {
-                id: 'twlivesandboxed',
-                name: 'TurboWarp Live (Safe)',
+                id: 'warplinksafe',
+                name: 'WarpLink Safe Editor',
                 blocks: [
                     {
-                        opcode: 'sendCloudData',
+                        opcode: 'shareScriptText',
                         blockType: Scratch.BlockType.COMMAND,
-                        text: 'Send 3D Data [DATA]',
+                        text: 'Share script layout [TEXT]',
                         arguments: {
-                            DATA: {
-                                type: Scratch.ArgumentType.STRING,
-                                defaultValue: "0,0,0"
-                            }
+                            TEXT: { type: Scratch.ArgumentType.STRING, defaultValue: "move 10 steps" }
                         }
                     },
                     {
-                        opcode: 'getCloudData',
+                        opcode: 'getSharedScriptText',
                         blockType: Scratch.BlockType.REPORTER,
-                        text: 'Friend\'s 3D Data'
+                        text: 'Friend\'s shared layout'
                     }
                 ]
             };
         }
 
-        // Sets the value of a project cloud variable natively inside the sandbox
-        sendCloudData(args) {
+        // Updates the native TurboWarp cloud network safely inside the sandbox
+        shareScriptText(args) {
             if (typeof Scratch !== 'undefined' && Scratch.vmData) {
-                Scratch.vmData.setCloudVariable('☁ multiplayer_data', args.DATA);
+                Scratch.vmData.setCloudVariable('☁ shared_editor_stream', args.TEXT);
             }
         }
 
-        // Reads the value of the cloud variable updated by the other tab
-        getCloudData() {
+        // Reads incoming workspace variables without touching hidden system directories
+        getSharedScriptText() {
             if (typeof Scratch !== 'undefined' && Scratch.vmData) {
-                return Scratch.vmData.getCloudVariable('☁ multiplayer_data') || "0,0,0";
+                return Scratch.vmData.getCloudVariable('☁ shared_editor_stream') || "No shared code yet.";
             }
-            return "0,0,0";
+            return this.incomingCodeData;
         }
     }
 
-    Scratch.extensions.register(new TurboWarpLiveSandboxed());
+    Scratch.extensions.register(new WarpLinkSafeEditor());
 })(Scratch);
